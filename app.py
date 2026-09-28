@@ -3,73 +3,138 @@ import google.generativeai as genai
 from PIL import Image
 
 # 페이지 기본 설정
-st.set_page_config(page_title="소설 캐릭터 분석기", layout="wide")
-st.title("📚 웹소설 캐릭터 분석 & 프롬프트 생성기")
-st.markdown("소설 텍스트와 캐릭터 이미지를 넣으면 AI가 캐릭터의 설정을 분석하고 프롬프트를 만들어줍니다.")
+st.set_page_config(page_title="웹소설 캐릭터 분석기", layout="wide")
+st.title("📚 멀티 웹소설 캐릭터 분석 & 프롬프트 생성기")
+st.markdown("소설 입력 칸을 자유롭게 추가하여 여러 편의 소설이나 설정집을 붙여넣고 통합 분석할 수 있습니다.")
 
-# 1. 사이드바: API 키 입력
+# 1. 세션 상태 초기화 (입력 칸 개수 관리)
+if "novel_inputs" not in st.session_state:
+    st.session_state.novel_inputs = [""]
+
+# 입력 칸 추가 함수
+def add_novel_input():
+    st.session_state.novel_inputs.append("")
+
+# 입력 칸 삭제 함수
+def remove_novel_input(index):
+    if len(st.session_state.novel_inputs) > 1:
+        st.session_state.novel_inputs.pop(index)
+
+# 2. 사이드바: API 키 및 모델 설정
 with st.sidebar:
     st.header("🔑 API 키 설정")
     api_key = st.text_input("Google AI Studio API Key", type="password")
-    st.markdown("[이곳에서 무료 API 키를 발급받으세요](https://aistudio.google.com/app/apikey)")
+    st.markdown("[무료 API 키 발급받기](https://aistudio.google.com/app/apikey)")
+    
+    model_choice = st.selectbox(
+        "AI 모델 선택",
+        ["gemini-1.5-flash", "gemini-1.5-pro"],
+        help="텍스트 분량이 매우 많다면 gemini-1.5-pro를 추천합니다."
+    )
 
-# API 키가 입력되었을 때만 메인 화면 실행
 if api_key:
-    # AI 모델 설정
     genai.configure(api_key=api_key)
     
-    # AI에게 내릴 강력한 지시사항 (프롬프트 깎기)
     system_instruction = """
     너는 웹소설 및 서사 분석 전문 AI이자 캐릭터 프롬프트 엔지니어이다.
-    제공된 소설 본문과 캐릭터 이미지를 종합 분석하여 캐릭터 상세 정보(외형, 말투, 특징)를 추출하라.
-    그리고 결과의 마지막에는 반드시 두 가지를 제공하라:
-    1. 이미지 생성용 영문 프롬프트 (Midjourney/Stable Diffusion 용)
-    2. AI 롤플레잉/챗봇 설정용 시스템 프롬프트 (성격, 말투 지침 등)
-    사용자의 추가 질문이 있다면 이를 최우선으로 반영해라.
+    제공된 여러 소설 본문/설정 텍스트들과 캐릭터 이미지를 종합적으로 연계 분석하여 캐릭터 상세 정보(외형, 말투, 특징)를 추출하라.
+    여러 에피소드나 작품에 걸쳐 등장하는 캐릭터의 서사적 변화나 입체적인 정보도 함께 반영하라.
+    
+    결과 작성시 반드시 아래 항목을 포함하라:
+    1. 인물 상세 분석 (외형, 말투/어조, 주요 특징 및 인간관계)
+    2. 이미지 생성용 영문 프롬프트 (Midjourney/Stable Diffusion 용)
+    3. AI 롤플레잉/챗봇 설정용 시스템 프롬프트 (성격, 말투 지침 등)
+    사용자의 추가 질문이 있다면 이를 최우선으로 반영하라.
     """
     
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name=model_choice,
         system_instruction=system_instruction
     )
 
-    # 2. 메인 화면: 좌우 반으로 나누기
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("📥 1. 데이터 입력")
-        text_input = st.text_area("📖 소설 본문 또는 설정집 텍스트 붙여넣기", height=250)
-        uploaded_file = st.file_uploader("🖼️ 캐릭터 삽화 이미지 업로드 (선택사항)", type=["png", "jpg", "jpeg", "webp"])
+        st.subheader("📥 1. 소설 및 이미지 입력")
         
-        if uploaded_file:
-            st.image(uploaded_file, caption="업로드된 이미지 미리보기", use_column_width=True)
-            
-        custom_question = st.text_input("💡 추가로 알고 싶은 정보나 특별한 요청사항 (선택사항)")
-        submit_btn = st.button("🚀 캐릭터 분석 시작", type="primary")
+        # 1-1. 동적 소설 입력 칸 생성
+        st.write("📖 **소설 본문 / 설정집 입력**")
+        for i in range(len(st.session_state.novel_inputs)):
+            col_text, col_del = st.columns([0.85, 0.15])
+            with col_text:
+                st.session_state.novel_inputs[i] = st.text_area(
+                    f"소설 텍스트 #{i+1}", 
+                    value=st.session_state.novel_inputs[i], 
+                    height=150,
+                    key=f"novel_text_{i}"
+                )
+            with col_del:
+                st.write("") # 높이 맞춤용
+                st.write("")
+                if len(st.session_state.novel_inputs) > 1:
+                    st.button("❌ 삭제", key=f"del_{i}", on_click=remove_novel_input, args=(i,))
+
+        # 입력 칸 추가 버튼
+        st.button("➕ 소설 입력 칸 추가하기", on_click=add_novel_input)
+        
+        st.divider()
+
+        # 1-2. 여러 텍스트 파일 업로드 (기존 파일 업로드도 유지)
+        uploaded_txt_files = st.file_uploader(
+            "📂 텍스트 파일(.txt)로 여러 개 올리기 (선택사항)", 
+            type=["txt"], 
+            accept_multiple_files=True
+        )
+        
+        # 1-3. 캐릭터 이미지 업로드 (다중 선택 가능)
+        uploaded_img_files = st.file_uploader(
+            "🖼️ 캐릭터 삽화/설정집 이미지 업로드 (선택사항)", 
+            type=["png", "jpg", "jpeg", "webp"], 
+            accept_multiple_files=True
+        )
+        
+        custom_question = st.text_input("💡 추가 분석 요청사항 (예: 특정 인물 간의 관계성 위주로 정리해줘)")
+        submit_btn = st.button("🚀 통합 캐릭터 분석 시작", type="primary")
 
     with col2:
-        st.subheader("📊 2. 분석 결과 및 프롬프트")
+        st.subheader("📊 2. 통합 분석 결과 및 프롬프트")
         
         if submit_btn:
-            if not text_input and not uploaded_file:
-                st.warning("⚠️ 소설 텍스트나 이미지 중 하나는 반드시 입력해야 합니다!")
+            # 입력된 텍스트가 하나라도 있는지 확인
+            has_text = any(t.strip() for t in st.session_state.novel_inputs)
+            if not has_text and not uploaded_txt_files and not uploaded_img_files:
+                st.warning("⚠️ 소설 텍스트, 파일, 이미지 중 최소 하나 이상은 입력해야 합니다!")
             else:
-                with st.spinner("AI가 텍스트와 이미지를 열심히 분석하고 있습니다. 잠시만 기다려주세요..."):
+                with st.spinner("입력하신 모든 소설 내용과 이미지를 통합 분석 중입니다..."):
                     try:
                         prompt_parts = []
-                        if text_input:
-                            prompt_parts.append(f"[소설 본문]:\n{text_input}\n")
+                        
+                        # 붙여넣은 소설 입력 칸들 내용 취합
+                        for idx, content in enumerate(st.session_state.novel_inputs):
+                            if content.strip():
+                                prompt_parts.append(f"[소설 입력 #{idx+1}]:\n{content}\n")
+                        
+                        # 업로드된 TXT 파일 내용 읽기
+                        if uploaded_txt_files:
+                            for idx, txt_file in enumerate(uploaded_txt_files):
+                                file_content = txt_file.read().decode("utf-8", errors="ignore")
+                                prompt_parts.append(f"[소설 파일: {txt_file.name}]:\n{file_content}\n")
+                        
+                        # 업로드된 이미지 반영
+                        if uploaded_img_files:
+                            for img_file in uploaded_img_files:
+                                image = Image.open(img_file)
+                                prompt_parts.append(image)
+                                
+                        # 추가 요청사항
                         if custom_question:
                             prompt_parts.append(f"[추가 요청사항]:\n{custom_question}\n")
-                        if uploaded_file:
-                            image = Image.open(uploaded_file)
-                            prompt_parts.append(image)
 
-                        # AI에게 데이터 전송 및 답변 받기
+                        # AI에 분석 요청
                         response = model.generate_content(prompt_parts)
-                        st.success("분석 완료!")
+                        st.success("통합 분석 완료!")
                         st.markdown(response.text)
                     except Exception as e:
-                        st.error(f"오류가 발생했습니다. API 키가 정확한지 확인해주세요. 내용: {e}")
+                        st.error(f"오류가 발생했습니다: {e}")
 else:
-    st.info("👈 왼쪽 사이드바에 Google AI Studio API 키를 입력해야 앱이 작동합니다.")
+    st.info("👈 왼쪽 사이드바에 Google AI Studio API 키를 입력하면 작동합니다.")
