@@ -26,10 +26,11 @@ with st.sidebar:
     api_key = st.text_input("Google AI Studio API Key", type="password")
     st.markdown("[무료 API 키 발급받기](https://aistudio.google.com/app/apikey)")
     
+    # 최신 지원 모델 목록으로 업데이트
     model_choice = st.selectbox(
         "AI 모델 선택",
-        ["gemini-1.5-flash", "gemini-1.5-pro"],
-        help="텍스트 분량이 매우 많다면 gemini-1.5-pro를 추천합니다."
+        ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+        help="기본으로 gemini-2.0-flash를 추천합니다."
     )
 
 if api_key:
@@ -69,7 +70,7 @@ if api_key:
                     key=f"novel_text_{i}"
                 )
             with col_del:
-                st.write("") # 높이 맞춤용
+                st.write("") 
                 st.write("")
                 if len(st.session_state.novel_inputs) > 1:
                     st.button("❌ 삭제", key=f"del_{i}", on_click=remove_novel_input, args=(i,))
@@ -79,14 +80,14 @@ if api_key:
         
         st.divider()
 
-        # 1-2. 여러 텍스트 파일 업로드 (기존 파일 업로드도 유지)
+        # 1-2. 여러 텍스트 파일 업로드
         uploaded_txt_files = st.file_uploader(
             "📂 텍스트 파일(.txt)로 여러 개 올리기 (선택사항)", 
             type=["txt"], 
             accept_multiple_files=True
         )
         
-        # 1-3. 캐릭터 이미지 업로드 (다중 선택 가능)
+        # 1-3. 캐릭터 이미지 업로드
         uploaded_img_files = st.file_uploader(
             "🖼️ 캐릭터 삽화/설정집 이미지 업로드 (선택사항)", 
             type=["png", "jpg", "jpeg", "webp"], 
@@ -100,7 +101,6 @@ if api_key:
         st.subheader("📊 2. 통합 분석 결과 및 프롬프트")
         
         if submit_btn:
-            # 입력된 텍스트가 하나라도 있는지 확인
             has_text = any(t.strip() for t in st.session_state.novel_inputs)
             if not has_text and not uploaded_txt_files and not uploaded_img_files:
                 st.warning("⚠️ 소설 텍스트, 파일, 이미지 중 최소 하나 이상은 입력해야 합니다!")
