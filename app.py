@@ -26,12 +26,17 @@ with st.sidebar:
     api_key = st.text_input("Google AI Studio API Key", type="password")
     st.markdown("[무료 API 키 발급받기](https://aistudio.google.com/app/apikey)")
     
-    # 최신 지원 모델 목록으로 업데이트
+    # 3.5 Flash 및 3.6 Flash 선택 옵션
     model_choice = st.selectbox(
         "AI 모델 선택",
-        ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
-        help="기본으로 gemini-2.0-flash를 추천합니다."
+        ["gemini-3.6-flash", "gemini-3.5-flash", "직접 입력"],
+        help="사용하실 Flash 모델을 선택하세요."
     )
+    
+    if model_choice == "직접 입력":
+        selected_model = st.text_input("모델명 직접 입력", value="gemini-3.6-flash")
+    else:
+        selected_model = model_choice
 
 if api_key:
     genai.configure(api_key=api_key)
@@ -49,7 +54,7 @@ if api_key:
     """
     
     model = genai.GenerativeModel(
-        model_name=model_choice,
+        model_name=selected_model,
         system_instruction=system_instruction
     )
 
